@@ -1,8 +1,8 @@
 //GLOBALS
 WiFiServer server(80);
 String header;
-const char* ssid       = "ChiliNet";
-const char* password   = "melvin32";
+const char* ssid       = "xxx";
+const char* password   = "xxx";
 const long utcOffsetInSeconds = 3600;
 char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
