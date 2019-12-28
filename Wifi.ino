@@ -1,54 +1,57 @@
 //GLOBALS
 WiFiServer server(80);
 String header;
-const char* ssid       = "xxx";
+const char* ssid       = "ChiliNet";
 const char* password   = "xxx";
 const long utcOffsetInSeconds = 3600;
 char daysOfTheWeek[7][12] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
+
 //Time
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
-string
-
 
 // Timeout variables
 unsigned long w_currentTime = millis();
-unsigned long w_previousTime = 0; 
+unsigned long w_previousTime = 0;
 const long w_timeoutTime = 2000;
 
 void SetupWifi(){
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Log(".");
+    Serial.print(".");
   }
-  Log("Wifi connected - IP:");
-  Serial.print(WiFi.localIP());
+  Log("Wifi connected");
+  Serial.println(WiFi.localIP());
   timeClient.begin();
   timeClient.setTimeOffset(utcOffsetInSeconds);
+  timeClient.forceUpdate();
   server.begin();
   }
 
 
 void UpdateTime(){
-    if(wholeSecond){
       timeClient.update();
-      Serial.print(daysOfTheWeek[timeClient.getDay()]);
-      Serial.print(", ");
-      Serial.print(timeClient.getHours());
-      Serial.print(":");
-      Serial.print(timeClient.getMinutes());
-      Serial.print(":");
-      Serial.println(timeClient.getSeconds());
-      //Serial.println(timeClient.getFormattedTime());
-    }
   }
 
-void HandleWifi(){
+void HandleWifi(bool wholeSecond, bool wholeMinute, bool wholeHour){
+
+  if(wholeHour){
+      UpdateTime();
+    }
+
+  if(wholeSecond){
+      currentTime = timeClient.getFormattedTime();
+      currentHour = timeClient.getHours();
+      currentMinute = timeClient.getMinutes();
+      currentDay = timeClient.getDay();
+    }
+  
   WiFiClient client = server.available();   // Listen for incoming clients
    if (client) {
-        Log("Client Connected");
+        Serial.print("Client Connected ");
+        header = "";
         String currentLine = "";
         w_currentTime = millis();
         w_previousTime = w_currentTime;
@@ -67,16 +70,21 @@ void HandleWifi(){
                                     client.println("Content-type:text/html");
                                     client.println("Connection: close");
                                     client.println();
+
                                     
-                                    // turns the GPIOs on and off
                                     if (header.indexOf("GET /door/open") >= 0) {
-                                      Serial.println("Opening door");
-                                      //output5State = "on";
+                                      Serial.println("WR:Opening door");
                                       OpenDoor();
-                                    } else if (header.indexOf("GET /door/close") >= 0) {
-                                      Serial.println("Closing door");
-                                      //output5State = "off";
+                                    } 
+                                    
+                                    if (header.indexOf("GET /door/close") >= 0) {
+                                      Serial.println("WR:Closing door");
                                       CloseDoor();
+                                    }
+                                    
+                                    if (header.indexOf("GET /door/stop") >= 0) {
+                                      Serial.println("WR:Stopping door");
+                                      StopDoor();
                                     }
                                     
                                     // Display the HTML web page
@@ -94,17 +102,30 @@ void HandleWifi(){
                                     client.println("<body><h1>Chickendoor System</h1>");
                                     
                                     // Display current state, and ON/OFF buttons for GPIO 5  
-                                    client.println("<p>Time is 20:00</p>");
+                                    client.println("<p>Time is " + currentTime + "</p>");
+                                    client.println("<p>Light is " + String(currentLux) + "lux</p>");
                                     client.println("<p>Door is " + doorState + "</p>");
                                     
                                     // If the output5State is off, it displays the ON button       
-                                    if (doorState=="closed") {
-                                      client.println("<p><a href=\"/5/open\"><button class=\"button\">Open door</button></a></p>");
-                                    } else {
-                                      client.println("<p><a href=\"/5/close\"><button class=\"button button2\">Close door</button></a></p>");
+                                    if (doorState=="closed" || doorState=="closing" || doorState=="unknown") {
+                                      client.println("<p><a href=\"/door/open?ms=" + currentTime + "\"><button class=\"button\">Open door</button></a></p>");
+                                    }
+                                    
+                                    if (doorState=="open" || doorState=="opening" || doorState=="unknown"){
+                                      client.println("<p><a href=\"/door/close?ms=" + currentTime + "\"><button class=\"button button2\">Close door</button></a></p>");
                                     }
 
+                                    if (doorState=="opening" || doorState=="closing") {
+                                      client.println("<p><a href=\"/door/stop?ms=" + currentTime + "\"><button class=\"button\">Stop door</button></a></p>");
+                                    }
+
+                                    //doorState = "unknown";  //States: opening, closing, closed, open, unknown
+
                                     client.println("<p><a href=\"../\"><button class=\"button button2\">Refresh view</button></a></p>");
+
+                                    client.println("<p><b>LOG:</b></p>");
+                                    client.println("<p>" + GetLog() + "</p>");
+                                    
                                     client.println("</body></html>");
                                     
                                     // The HTTP response ends with another blank line
@@ -121,3 +142,22 @@ void HandleWifi(){
             }
         }
     }
+
+
+
+
+String logHist;
+
+void Log(String logEntry){
+  Serial.println(logEntry);
+  logHist = logEntry + String(" (") + currentTime + String(")<br>") + logHist;
+  int logSize = logHist.length();
+  if(logSize > 300){
+      int lastBreak = logHist.lastIndexOf("<br>");
+      logHist = logHist.substring(0,lastBreak-4);
+    };
+  }
+
+String GetLog(){
+  return logHist;
+  }

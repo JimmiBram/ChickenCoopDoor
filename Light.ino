@@ -9,15 +9,31 @@ BH1750FVI LightSensor(ADDRESSPIN, DEVICEADDRESS, DEVICEMODE);
 //Variables
 float luxHist[] = {100, 100, 100}; //Array of lux values
 int luxHistSize = 3;
+float currentLux = 0;
 
 void SetupLight()
 {
     LightSensor.begin();
+    
+    Log("Determining startup mode");
+    for (int f = 0; f <= 3; f++) {
+      SetHist(LightSensor.GetLightIntensity());
+      delay(1000);
+    }
+    float avgLux = GetAverageLux();
+    if (avgLux <= nightThreshold){
+      isNight = true;
+      Log("It is night");
+    }else{
+      isNight = false;
+      Log("It is day");
+    }
   }
 
-void HandleLight(bool wholeSecond){
+void HandleLight(bool wholeSecond, bool wholeMinute, bool wholeHour){
   if(wholeSecond){
-        SetHist(LightSensor.GetLightIntensity());
+        currentLux = LightSensor.GetLightIntensity();
+        SetHist(currentLux);
     }
   }
 
@@ -41,3 +57,23 @@ void SetHist(float value) {
   luxHist[1] = luxHist[0];
   luxHist[0] = value;
 }
+
+
+bool IsItDayNow(){
+    if(currentLux > dayThreshold && luxHist[2] > dayThreshold && luxHist[1] > dayThreshold && luxHist[0] > dayThreshold)
+      {
+        return true;
+      }else{
+        return false;
+      }
+  }
+
+
+bool IsItNightNow(){
+    if(currentLux < nightThreshold && luxHist[2] < nightThreshold && luxHist[1] < nightThreshold && luxHist[0] < nightThreshold)
+      {
+        return true;
+      }else{
+        return false;
+      }
+  }

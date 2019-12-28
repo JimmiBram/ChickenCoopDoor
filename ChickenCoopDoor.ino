@@ -10,16 +10,28 @@
 //GLOBAL SETTINGS
 boolean isNight = false;
 bool motorIsRunning = false;
-String doorState = "unknown";  //States: opening, closing, closed, open, unknown
+String currentTime = "00:00";
+int currentMinute = 0;
+int currentHour = 0;
+int currentDay = 0;
+
+float nightThreshold = 0.0;
+float dayThreshold = 50.0;
+int minimumDayHour = 7;
 
 //GLOBAL VARIABLES
-static const unsigned long REFRESH_INTERVAL = 1000; // ms
-static unsigned long lastRefreshTime = 0;
+static const unsigned long REFRESH_INTERVAL_SECONDS = 1000; // ms
+static const unsigned long REFRESH_INTERVAL_MINUTES = 60000; // ms
+static const unsigned long REFRESH_INTERVAL_HOURS = 3600000; // ms
+static unsigned long lastRefreshTimeSeconds = 0;
+static unsigned long lastRefreshTimeMinutes = 0;
+static unsigned long lastRefreshTimeHours = 0;
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
   analogWriteFreq(10);
+  Log("Chickendoor Node Started");
   SetupWifi();
   SetupDoor();
   SetupLight();
@@ -28,22 +40,31 @@ void setup() {
 void loop() {
   //Main loop
   bool wholeSecond = false;
+  bool wholeMinute = false;
+  bool wholeHour = false;
 
   //One second tasks
-  if(millis() - lastRefreshTime >= REFRESH_INTERVAL)
+  if(millis() - lastRefreshTimeSeconds >= REFRESH_INTERVAL_SECONDS)
   {
-      lastRefreshTime += REFRESH_INTERVAL;
+      lastRefreshTimeSeconds += REFRESH_INTERVAL_SECONDS;
       wholeSecond = true;
   }
 
-  //Hourly tasks
-  if(millis() - lastRefreshTime >= REFRESH_INTERVAL)
+  //One minute tasks
+  if(millis() - lastRefreshTimeMinutes >= REFRESH_INTERVAL_MINUTES)
   {
-      lastRefreshTime += REFRESH_INTERVAL;
-      wholeSecond = true;
+      lastRefreshTimeMinutes += REFRESH_INTERVAL_MINUTES;
+      wholeMinute = true;
   }
 
-  HandleWifi(wholeSecond);
-  HandleLight(wholeSecond);
-  HandleDoor(wholeSecond);
+  //One minute tasks
+  if(millis() - lastRefreshTimeHours >= REFRESH_INTERVAL_HOURS)
+  {
+      lastRefreshTimeHours += REFRESH_INTERVAL_HOURS;
+      wholeHour = true;
+  }
+
+  HandleWifi(wholeSecond, wholeMinute, wholeHour);
+  HandleLight(wholeSecond, wholeMinute, wholeHour);
+  HandleDoor(wholeSecond, wholeMinute, wholeHour);
 }
